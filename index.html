@@ -689,6 +689,8 @@
   </div>
 
   <p class="note">Data via OpenSky Network. Refreshes every 30s.<br>Coverage depends on volunteer receiver density in your area.</p>
+
+  <pre id="scan-diag" style="display:none;width:min(90vw,360px);font-size:0.55rem;line-height:1.8;color:#00aa55;background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,136,0.15);padding:10px 12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all"><style>.sd-ok{color:#00ff88}.sd-warn{color:#ffaa00}.sd-err{color:#ff4444}</style></pre>
 </div>
 
 <script>
@@ -943,16 +945,45 @@ async function startTracking() {
 async function fetchPlanes() {
   setStatus('SCANNING...', true);
   const url = buildApiUrl(myLat, myLon, RADIUS_DEG);
+  const creds = getCredentials();
+
+  // Diagnostic panel
+  const diagEl = document.getElementById('scan-diag');
+  const lines = [];
+  const sd = (msg, type='') => {
+    const ts = new Date().toISOString().substring(11,23);
+    lines.push(`<span class="${type ? 'sd-'+type : ''}">[${ts}] ${msg}</span>`);
+    diagEl.innerHTML = lines.join('\n');
+    diagEl.style.display = 'block';
+  };
+
+  sd('fetchPlanes() called');
+  sd(`Creds in storage: ${creds ? 'YES, user=' + creds.user : 'NONE'}`);
+  sd(`URL: ${url.substring(0, 100)}...`);
 
   try {
+    sd('Sending fetch to worker...');
     const resp = await fetch(url, apiFetchOptions());
+    sd(`Response: HTTP ${resp.status}`, resp.status === 200 ? 'ok' : resp.status < 500 ? 'warn' : 'err');
+
     if (resp.status === 401) {
+      sd('401 - clearing credentials', 'err');
       clearCredentials();
       showLogin('SESSION EXPIRED - PLEASE RE-ENTER CREDENTIALS');
       return;
     }
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (resp.status === 429) {
+      sd('429 - rate limit hit', 'warn');
+      setStatus('API LIMIT - RETRYING IN 30s', false);
+      return;
+    }
+    if (!resp.ok) {
+      sd(`Non-OK response: ${resp.status}`, 'err');
+      throw new Error(`HTTP ${resp.status}`);
+    }
+
     const data = await resp.json();
+    sd(`JSON parsed OK. states: ${data.states ? data.states.length : 'null'}`, 'ok');
 
     const states = data.states || [];
     planes = states
@@ -974,6 +1005,7 @@ async function fetchPlanes() {
       .filter(p => p.dist <= RADIUS_NM)
       .sort((a, b) => a.dist - b.dist);
 
+    sd(`Planes in range: ${planes.length}`, 'ok');
     document.getElementById('contact-count').textContent = planes.length;
     setStatus(planes.length > 0 ? 'ACTIVE - ' + new Date().toLocaleTimeString() : 'SCANNING - NO CONTACTS', false);
     renderRadar();
@@ -983,8 +1015,8 @@ async function fetchPlanes() {
       if (found) renderDetail(found);
     }
   } catch (e) {
+    sd(`fetch threw: ${e.name}: ${e.message}`, 'err');
     setStatus('API LIMIT - RETRYING IN 30s', false);
-    console.error(e);
   }
 }
 

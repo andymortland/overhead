@@ -432,168 +432,6 @@
     top: -1px;
   }
 
-  /* LOGIN SCREEN */
-  #login-screen {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    z-index: 500;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 24px;
-    gap: 0;
-  }
-
-  #login-screen.hidden { display: none; }
-
-  .login-logo {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 2.2rem;
-    font-weight: 600;
-    letter-spacing: 0.4em;
-    color: var(--green);
-    margin-bottom: 4px;
-  }
-
-  .login-sub {
-    font-size: 0.6rem;
-    color: var(--dim-green);
-    letter-spacing: 0.2em;
-    margin-bottom: 36px;
-  }
-
-  .login-box {
-    width: min(100%, 320px);
-    border: 1px solid rgba(0,255,136,0.25);
-    padding: 24px 20px 20px;
-    position: relative;
-    background: rgba(0,255,136,0.02);
-  }
-
-  .login-box::before {
-    content: 'OPENSKY CREDENTIALS';
-    position: absolute;
-    top: -8px;
-    left: 14px;
-    font-size: 0.55rem;
-    color: var(--dim-green);
-    background: var(--bg);
-    padding: 0 6px;
-    letter-spacing: 0.2em;
-  }
-
-  .login-field {
-    margin-bottom: 16px;
-  }
-
-  .login-field label {
-    display: block;
-    font-size: 0.6rem;
-    color: var(--dim-green);
-    letter-spacing: 0.15em;
-    margin-bottom: 6px;
-  }
-
-  .login-field input {
-    width: 100%;
-    background: rgba(0,255,136,0.04);
-    border: 1px solid rgba(0,255,136,0.2);
-    color: var(--green);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.9rem;
-    padding: 10px 12px;
-    outline: none;
-    border-radius: 0;
-    -webkit-appearance: none;
-    letter-spacing: 0.05em;
-  }
-
-  .login-field input:focus {
-    border-color: rgba(0,255,136,0.6);
-    background: rgba(0,255,136,0.07);
-  }
-
-  .login-field input::placeholder {
-    color: rgba(0,255,136,0.2);
-  }
-
-  #login-btn {
-    width: 100%;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
-    color: var(--bg);
-    background: var(--green);
-    border: none;
-    padding: 13px;
-    cursor: pointer;
-    margin-top: 4px;
-    -webkit-appearance: none;
-    border-radius: 0;
-  }
-
-  #login-btn:active { background: #00ffaa; }
-
-  #login-error {
-    display: none;
-    color: #ff4444;
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
-    margin-top: 12px;
-    text-align: center;
-    line-height: 1.6;
-  }
-
-  .login-help {
-    margin-top: 20px;
-    font-size: 0.58rem;
-    color: rgba(0,255,136,0.2);
-    text-align: center;
-    letter-spacing: 0.1em;
-    line-height: 1.8;
-    width: min(100%, 320px);
-  }
-
-  .login-help a {
-    color: var(--dim-green);
-    text-decoration: none;
-  }
-
-  /* Settings gear in header */
-  #settings-btn {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--dim-green);
-    font-size: 1rem;
-    cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
-  }
-
-  #settings-btn:active { color: var(--green); }
-
-  #login-diag {
-    display: none;
-    margin-top: 14px;
-    padding: 10px 12px;
-    border: 1px solid rgba(0,255,136,0.15);
-    background: rgba(0,0,0,0.3);
-    font-size: 0.58rem;
-    color: var(--dim-green);
-    letter-spacing: 0.05em;
-    line-height: 1.9;
-    word-break: break-all;
-  }
-
-  #login-diag.visible { display: block; }
-  #login-diag .diag-line { display: block; }
-  #login-diag .diag-ok { color: var(--green); }
-  #login-diag .diag-err { color: #ff4444; }
-  #login-diag .diag-warn { color: var(--amber); }
-
   /* Install prompt banner */
   #install-banner {
     display: none;
@@ -614,35 +452,9 @@
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
-<div id="login-screen">
-  <div class="login-logo">OVERHEAD</div>
-  <div class="login-sub">ADS-B AIRSPACE MONITOR</div>
-
-  <div class="login-box">
-    <div class="login-field">
-      <label>USERNAME</label>
-      <input type="text" id="login-user" autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="your opensky username">
-    </div>
-    <div class="login-field">
-      <label>PASSWORD</label>
-      <input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••">
-    </div>
-    <button id="login-btn" onclick="submitLogin()">▶ CONNECT</button>
-    <div id="login-error"></div>
-    <div id="login-diag"></div>
-  </div>
-
-  <div class="login-help">
-    Credentials are stored only on this device.<br>
-    No account? <a href="https://opensky-network.org/login?redirect=register" target="_blank">Register free at opensky-network.org</a>
-  </div>
-</div>
-
 <header>
   <h1>OVERHEAD</h1>
   <span class="sub">ADS-B AIRSPACE MONITOR</span>
-  <button id="settings-btn" title="Change credentials" onclick="showLogin()">⚙</button>
 </header>
 
 <div id="status-bar">
@@ -706,148 +518,11 @@ if (isSafari && !isInStandaloneMode) {
   document.getElementById('install-banner').classList.add('visible');
 }
 
-// ── CREDENTIALS ──────────────────────────────────────────────
-// Stored in localStorage on the device only - never in source code.
-const CRED_KEY = 'overhead_opensky_creds';
-
-function getCredentials() {
-  try {
-    const raw = localStorage.getItem(CRED_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function saveCredentials(user, pass) {
-  localStorage.setItem(CRED_KEY, JSON.stringify({ user, pass }));
-}
-
-function clearCredentials() {
-  localStorage.removeItem(CRED_KEY);
-}
+// ── API ───────────────────────────────────────────────────────
+const WORKER = 'https://green-hill-ea3d.andy-mortland.workers.dev';
 
 function buildApiUrl(lat, lon, r) {
-  const creds = getCredentials();
-  const base = `https://green-hill-ea3d.andy-mortland.workers.dev/?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
-  return creds ? `${base}&user=${encodeURIComponent(creds.user)}&password=${encodeURIComponent(creds.pass)}` : base;
-}
-
-function apiFetchOptions() {
-  return {};
-}
-
-function showLogin(errorMsg) {
-  // Clear the radar if showing
-  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('login-error').style.display = errorMsg ? 'block' : 'none';
-  document.getElementById('login-error').textContent = errorMsg || '';
-  // Pre-fill username if we have it
-  const creds = getCredentials();
-  if (creds) document.getElementById('login-user').value = creds.user;
-  document.getElementById('login-pass').value = '';
-}
-
-function hideLogin() {
-  document.getElementById('login-screen').classList.add('hidden');
-}
-
-let diagLines = [];
-function diag(msg, type = '') {
-  const ts = new Date().toISOString().substring(11, 23);
-  diagLines.push({ ts, msg, type });
-  const el = document.getElementById('login-diag');
-  el.classList.add('visible');
-  el.innerHTML = diagLines.map(d =>
-    `<span class="diag-line ${d.type ? 'diag-' + d.type : ''}">[${d.ts}] ${d.msg}</span>`
-  ).join('');
-}
-
-async function submitLogin() {
-  const user = document.getElementById('login-user').value.trim();
-  const pass = document.getElementById('login-pass').value;
-  const btn = document.getElementById('login-btn');
-  const errEl = document.getElementById('login-error');
-
-  diagLines = [];
-  diag('Login attempt started');
-
-  if (!user || !pass) {
-    errEl.textContent = 'ENTER BOTH USERNAME AND PASSWORD';
-    errEl.style.display = 'block';
-    diag('Validation failed: missing fields', 'err');
-    return;
-  }
-
-  diag(`User: "${user}", pass length: ${pass.length}`);
-
-  btn.textContent = '⟳ VERIFYING...';
-  btn.disabled = true;
-  errEl.style.display = 'none';
-
-  const testUrl = 'https://opensky-network.org/api/states/all?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8';
-  diag(`Fetching: ${testUrl}`);
-
-  let encoded;
-  try {
-    encoded = btoa(`${user}:${pass}`);
-    diag(`btoa encode OK, length: ${encoded.length}`, 'ok');
-  } catch (e) {
-    diag(`btoa failed: ${e.message}`, 'err');
-    errEl.textContent = 'ENCODING ERROR: ' + e.message;
-    errEl.style.display = 'block';
-    btn.textContent = '▶ CONNECT';
-    btn.disabled = false;
-    return;
-  }
-
-  try {
-    diag('Sending fetch...');
-    const testUrl = `https://green-hill-ea3d.andy-mortland.workers.dev/?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8&user=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
-    diag(`URL: ${testUrl.substring(0, 80)}...`);
-    const resp = await fetch(testUrl);
-    diag(`Response received: HTTP ${resp.status}`, resp.status < 400 ? 'ok' : 'warn');
-    diag(`Content-Type: ${resp.headers.get('content-type') || 'none'}`);
-
-    if (resp.status === 401) {
-      diag('401 Unauthorized - bad credentials', 'err');
-      btn.textContent = '▶ CONNECT';
-      btn.disabled = false;
-      errEl.textContent = 'INVALID CREDENTIALS - CHECK USERNAME AND PASSWORD';
-      errEl.style.display = 'block';
-      return;
-    }
-
-    diag(`HTTP ${resp.status} - credentials accepted`, 'ok');
-    saveCredentials(user, pass);
-    diag('Credentials saved to localStorage', 'ok');
-    btn.textContent = '▶ CONNECT';
-    btn.disabled = false;
-    hideLogin();
-    if (myLat !== null) {
-      fetchPlanes();
-      refreshTimer = setInterval(fetchPlanes, 30000);
-    }
-  } catch (e) {
-    diag(`fetch threw: ${e.name}: ${e.message}`, 'err');
-    diag(`Stack: ${e.stack ? e.stack.substring(0, 120) : 'none'}`, 'err');
-    btn.textContent = '▶ CONNECT';
-    btn.disabled = false;
-    errEl.textContent = 'NETWORK ERROR: ' + e.name + ' - ' + e.message;
-    errEl.style.display = 'block';
-  }
-}
-
-// Handle Enter key on password field
-document.getElementById('login-pass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') submitLogin();
-});
-
-// ── STARTUP ───────────────────────────────────────────────────
-// Check for saved credentials on load
-if (!getCredentials()) {
-  showLogin();
-} else {
-  hideLogin();
+  return `${WORKER}/?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
 }
 
 // ── AIRLINE DATABASE ──────────────────────────────────────────
@@ -859,8 +534,7 @@ fetch('airlines.json')
 
 function getAirline(callsign) {
   if (!callsign || callsign.length < 3) return null;
-  const prefix = callsign.substring(0, 3).toUpperCase();
-  return AIRLINES[prefix] || null;
+  return AIRLINES[callsign.substring(0, 3).toUpperCase()] || null;
 }
 
 function airlineBadgeHTML(airline) {
@@ -945,9 +619,7 @@ async function startTracking() {
 async function fetchPlanes() {
   setStatus('SCANNING...', true);
   const url = buildApiUrl(myLat, myLon, RADIUS_DEG);
-  const creds = getCredentials();
 
-  // Diagnostic panel
   const diagEl = document.getElementById('scan-diag');
   const lines = [];
   const sd = (msg, type='') => {
@@ -958,32 +630,26 @@ async function fetchPlanes() {
   };
 
   sd('fetchPlanes() called');
-  sd(`Creds in storage: ${creds ? 'YES, user=' + creds.user : 'NONE'}`);
-  sd(`URL: ${url.substring(0, 100)}...`);
+  sd(`URL: ${url}`);
 
   try {
     sd('Sending fetch to worker...');
-    const resp = await fetch(url, apiFetchOptions());
+    const resp = await fetch(url);
     sd(`Response: HTTP ${resp.status}`, resp.status === 200 ? 'ok' : resp.status < 500 ? 'warn' : 'err');
 
-    if (resp.status === 401) {
-      sd('401 - clearing credentials', 'err');
-      clearCredentials();
-      showLogin('SESSION EXPIRED - PLEASE RE-ENTER CREDENTIALS');
-      return;
-    }
     if (resp.status === 429) {
       sd('429 - rate limit hit', 'warn');
       setStatus('API LIMIT - RETRYING IN 30s', false);
       return;
     }
     if (!resp.ok) {
-      sd(`Non-OK response: ${resp.status}`, 'err');
+      const text = await resp.text();
+      sd(`Error body: ${text.substring(0, 120)}`, 'err');
       throw new Error(`HTTP ${resp.status}`);
     }
 
     const data = await resp.json();
-    sd(`JSON parsed OK. states: ${data.states ? data.states.length : 'null'}`, 'ok');
+    sd(`JSON OK. states: ${data.states ? data.states.length : 'null'}`, 'ok');
 
     const states = data.states || [];
     planes = states

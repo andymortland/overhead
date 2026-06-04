@@ -1,0 +1,24 @@
+{
+  "name": "OVERHEAD - Airspace Monitor",
+  "short_name": "OVERHEAD",
+  "description": "Live ADS-B airspace monitor. See every plane overhead in real time.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030a06",
+  "theme_color": "#030a06",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

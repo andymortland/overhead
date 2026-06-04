@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>OVERHEAD</title>
+
+<!-- PWA meta tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OVERHEAD">
+<meta name="theme-color" content="#030a06">
+<meta name="description" content="Live ADS-B airspace monitor. See every plane overhead in real time.">
+
+<!-- PWA manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- Apple touch icons -->
+<link rel="apple-touch-icon" href="icon-192.svg">
+
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff88;
+    --dim-green: #00aa55;
+    --faint-green: #003322;
+    --amber: #ffaa00;
+    --bg: #030a06;
+    --grid: rgba(0,255,136,0.07);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(0,255,136,0.2);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  header h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    color: var(--green);
+  }
+
+  header .sub {
+    font-size: 0.65rem;
+    color: var(--dim-green);
+    letter-spacing: 0.15em;
+  }
+
+  #status-bar {
+    padding: 6px 20px;
+    font-size: 0.65rem;
+    color: var(--dim-green);
+    border-bottom: 1px solid rgba(0,255,136,0.1);
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  #status-bar span { color: var(--green); }
+
+  .main-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    gap: 20px;
+  }
+
+  /* RADAR */
+  #radar-wrap {
+    position: relative;
+    width: min(90vw, 360px);
+    height: min(90vw, 360px);
+    flex-shrink: 0;
+  }
+
+  #radar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 1px solid rgba(0,255,136,0.3);
+    background: radial-gradient(circle, #041208 0%, #020804 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #radar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 24%, rgba(0,255,136,0.06) 25%, transparent 25.5%),
+      radial-gradient(circle at 50% 50%, transparent 49%, rgba(0,255,136,0.06) 50%, transparent 50.5%),
+      radial-gradient(circle at 50% 50%, transparent 74%, rgba(0,255,136,0.06) 75%, transparent 75.5%);
+  }
+
+  #radar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to right, transparent calc(50% - 0.5px), rgba(0,255,136,0.1) calc(50% - 0.5px), rgba(0,255,136,0.1) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+      linear-gradient(to bottom, transparent calc(50% - 0.5px), rgba(0,255,136,0.1) calc(50% - 0.5px), rgba(0,255,136,0.1) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+  }
+
+  #sweep {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      transparent 300deg,
+      rgba(0,255,136,0.06) 330deg,
+      rgba(0,255,136,0.18) 360deg
+    );
+    animation: sweep 4s linear infinite;
+    transform-origin: center;
+  }
+
+  @keyframes sweep {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .plane-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+  }
+
+  .plane-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-out infinite;
+  }
+
+  .plane-dot.selected::before {
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  .plane-dot::after {
+    content: attr(data-callsign);
+    position: absolute;
+    left: 14px;
+    top: -4px;
+    font-size: 0.55rem;
+    color: var(--dim-green);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+
+  .plane-dot.selected::after {
+    color: var(--amber);
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0,255,136,0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,255,136,0); }
+  }
+
+  .cardinal {
+    position: absolute;
+    font-size: 0.6rem;
+    color: rgba(0,255,136,0.35);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    z-index: 2;
+  }
+  .cardinal.N { top: 4px; left: 50%; transform: translateX(-50%); }
+  .cardinal.S { bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .cardinal.E { right: 6px; top: 50%; transform: translateY(-50%); }
+  .cardinal.W { left: 6px; top: 50%; transform: translateY(-50%); }
+
+  #range-label {
+    position: absolute;
+    bottom: -22px;
+    right: 0;
+    font-size: 0.6rem;
+    color: var(--dim-green);
+    letter-spacing: 0.1em;
+  }
+
+  /* DETAIL PANEL */
+  #detail-panel {
+    width: min(90vw, 360px);
+    border: 1px solid rgba(0,255,136,0.2);
+    padding: 14px 16px;
+    min-height: 160px;
+    background: rgba(0,255,136,0.02);
+    position: relative;
+  }
+
+  #detail-panel::before {
+    content: 'SELECTED CONTACT';
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    font-size: 0.55rem;
+    color: var(--dim-green);
+    background: var(--bg);
+    padding: 0 6px;
+    letter-spacing: 0.2em;
+  }
+
+  .detail-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 130px;
+    color: rgba(0,255,136,0.2);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+  }
+
+  .detail-field label {
+    display: block;
+    font-size: 0.55rem;
+    color: var(--dim-green);
+    letter-spacing: 0.15em;
+    margin-bottom: 2px;
+  }
+
+  .detail-field .val {
+    font-size: 0.95rem;
+    color: var(--green);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .detail-field .val.highlight { color: var(--amber); }
+
+  .detail-callsign {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--amber);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(0,255,136,0.15);
+    padding-bottom: 8px;
+  }
+
+  /* FLIGHT LIST */
+  #flight-list {
+    width: min(90vw, 360px);
+    border: 1px solid rgba(0,255,136,0.2);
+    background: rgba(0,255,136,0.02);
+    position: relative;
+  }
+
+  #flight-list::before {
+    content: 'ALL CONTACTS';
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    font-size: 0.55rem;
+    color: var(--dim-green);
+    background: var(--bg);
+    padding: 0 6px;
+    letter-spacing: 0.2em;
+  }
+
+  .flight-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 60px 60px;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(0,255,136,0.07);
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .flight-row:hover, .flight-row.active { background: rgba(0,255,136,0.06); }
+  .flight-row.active { border-left: 2px solid var(--amber); }
+
+  .flight-row .callsign { color: var(--green); font-weight: bold; letter-spacing: 0.05em; }
+  .flight-row .route { color: var(--dim-green); font-size: 0.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flight-row .alt { color: var(--green); text-align: right; }
+  .flight-row .dist { color: var(--dim-green); text-align: right; font-size: 0.6rem; }
+
+  .list-header {
+    display: grid;
+    grid-template-columns: 90px 1fr 60px 60px;
+    gap: 8px;
+    padding: 8px 14px 4px;
+    font-size: 0.55rem;
+    color: rgba(0,255,136,0.3);
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid rgba(0,255,136,0.15);
+    margin-top: 8px;
+  }
+
+  #locate-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--bg);
+    background: var(--green);
+    border: none;
+    padding: 14px 32px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+
+  #locate-btn:hover { background: #00ffaa; }
+  #locate-btn:disabled { background: var(--dim-green); cursor: wait; }
+
+  #error-msg {
+    color: #ff4444;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+    display: none;
+    max-width: 300px;
+    line-height: 1.6;
+  }
+
+  .blink { animation: blink 1.2s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .note {
+    font-size: 0.6rem;
+    color: rgba(0,255,136,0.25);
+    text-align: center;
+    letter-spacing: 0.1em;
+    max-width: 340px;
+    line-height: 1.6;
+    padding-bottom: 20px;
+  }
+
+  /* Airline badge */
+  .airline-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+
+  .airline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .airline-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--green);
+  }
+
+  .airline-unknown {
+    color: rgba(0,255,136,0.35);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* List badge dot */
+  .list-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 5px;
+    flex-shrink: 0;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+  }
+
+  /* Install prompt banner */
+  #install-banner {
+    display: none;
+    width: min(90vw, 360px);
+    border: 1px solid rgba(0,255,136,0.3);
+    background: rgba(0,255,136,0.05);
+    padding: 10px 14px;
+    font-size: 0.6rem;
+    color: var(--dim-green);
+    letter-spacing: 0.1em;
+    line-height: 1.7;
+    position: relative;
+  }
+
+  #install-banner strong { color: var(--green); }
+  #install-banner.visible { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OVERHEAD</h1>
+  <span class="sub">ADS-B AIRSPACE MONITOR</span>
+</header>
+
+<div id="status-bar">
+  <div>STATUS: <span id="status-text" class="blink">AWAITING LOCATION</span></div>
+  <div>CONTACTS: <span id="contact-count">--</span></div>
+  <div>RADIUS: <span>50 NM</span></div>
+  <div id="coords-display"></div>
+</div>
+
+<div class="main-layout">
+
+  <div id="install-banner">
+    <strong>ADD TO HOME SCREEN</strong> - tap the Share button in Safari, then "Add to Home Screen" to install as an app.
+  </div>
+
+  <button id="locate-btn" onclick="startTracking()">▶ ACQUIRE POSITION</button>
+  <div id="error-msg"></div>
+
+  <div id="radar-wrap" style="display:none">
+    <div id="radar">
+      <div id="sweep"></div>
+      <span class="cardinal N">N</span>
+      <span class="cardinal S">S</span>
+      <span class="cardinal E">E</span>
+      <span class="cardinal W">W</span>
+      <div id="plane-layer"></div>
+    </div>
+    <div id="range-label">50 NM RADIUS</div>
+  </div>
+
+  <div id="detail-panel" style="display:none">
+    <div class="detail-empty" id="detail-empty">TAP A CONTACT TO INSPECT</div>
+    <div id="detail-content" style="display:none"></div>
+  </div>
+
+  <div id="flight-list" style="display:none">
+    <div class="list-header">
+      <span>CALLSIGN</span>
+      <span>AIRLINE</span>
+      <span style="text-align:right">ALT ft</span>
+      <span style="text-align:right">DIST nm</span>
+    </div>
+    <div id="list-rows"></div>
+  </div>
+
+  <p class="note">Data via OpenSky Network. Refreshes every 30s.<br>Coverage depends on volunteer receiver density in your area.</p>
+</div>
+
+<script>
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.log('SW reg failed:', e));
+}
+
+// Show install hint if running in Safari (not already installed as PWA)
+const isInStandaloneMode = window.navigator.standalone;
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+if (isSafari && !isInStandaloneMode) {
+  document.getElementById('install-banner').classList.add('visible');
+}
+
+// Airline database - loaded from airlines.json at startup
+let AIRLINES = {};
+fetch('airlines.json')
+  .then(r => r.json())
+  .then(data => { AIRLINES = data; console.log(`Loaded ${Object.keys(data).length} airline entries`); })
+  .catch(e => console.warn('Could not load airlines.json:', e));
+
+// Look up airline by callsign prefix (first 3 chars)
+function getAirline(callsign) {
+  if (!callsign || callsign.length < 3) return null;
+  const prefix = callsign.substring(0, 3).toUpperCase();
+  return AIRLINES[prefix] || null;
+}
+
+// Render a colored dot badge for an airline (or grey if unknown)
+function airlineBadgeHTML(airline) {
+  if (airline) {
+    return `<span class="list-dot" style="background:${airline.color}"></span>`;
+  }
+  return `<span class="list-dot" style="background:rgba(0,255,136,0.2)"></span>`;
+}
+
+let myLat = null, myLon = null;
+let planes = [];
+let selectedIcao = null;
+let refreshTimer = null;
+const RADIUS_NM = 50;
+const RADIUS_DEG = RADIUS_NM / 60;
+
+function setStatus(text, blink = false) {
+  const el = document.getElementById('status-text');
+  el.textContent = text;
+  el.className = blink ? 'blink' : '';
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 3440.065;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+async function startTracking() {
+  const btn = document.getElementById('locate-btn');
+  btn.disabled = true;
+  btn.textContent = '⟳ ACQUIRING...';
+  setStatus('ACQUIRING GPS', true);
+
+  if (!navigator.geolocation) {
+    showError('GEOLOCATION NOT SUPPORTED BY THIS BROWSER');
+    btn.disabled = false;
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      myLat = pos.coords.latitude;
+      myLon = pos.coords.longitude;
+      document.getElementById('coords-display').innerHTML =
+        `LOC: <span>${myLat.toFixed(3)}° ${myLon.toFixed(3)}°</span>`;
+      btn.style.display = 'none';
+      document.getElementById('install-banner').style.display = 'none';
+      document.getElementById('radar-wrap').style.display = 'block';
+      document.getElementById('detail-panel').style.display = 'block';
+      document.getElementById('flight-list').style.display = 'block';
+      fetchPlanes();
+      refreshTimer = setInterval(fetchPlanes, 30000);
+    },
+    err => {
+      let msg = 'GPS ERROR: ' + err.message.toUpperCase();
+      if (err.code === 1) msg = 'LOCATION DENIED - CHECK SAFARI SETTINGS > PRIVACY > LOCATION SERVICES';
+      showError(msg);
+      btn.disabled = false;
+      btn.textContent = '▶ RETRY';
+      setStatus('GPS FAILED', false);
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+async function fetchPlanes() {
+  setStatus('SCANNING...', true);
+  const lat = myLat, lon = myLon, r = RADIUS_DEG;
+  const url = `https://opensky-network.org/api/states/all?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const states = data.states || [];
+    planes = states
+      .filter(s => s[5] && s[6] && s[7])
+      .map(s => ({
+        icao: s[0],
+        callsign: (s[1] || '').trim() || s[0].toUpperCase(),
+        origin: s[2] || '??',
+        lon: s[5],
+        lat: s[6],
+        alt: s[7] ? Math.round(s[7] * 3.28084) : null,
+        speed: s[9] ? Math.round(s[9] * 1.94384) : null,
+        heading: s[10] || 0,
+        vert: s[11] || 0,
+        dist: haversine(myLat, myLon, s[6], s[5]),
+        bearing: bearing(myLat, myLon, s[6], s[5]),
+        airline: getAirline((s[1] || '').trim())
+      }))
+      .filter(p => p.dist <= RADIUS_NM)
+      .sort((a, b) => a.dist - b.dist);
+
+    document.getElementById('contact-count').textContent = planes.length;
+    setStatus(planes.length > 0 ? 'ACTIVE - ' + new Date().toLocaleTimeString() : 'SCANNING - NO CONTACTS', false);
+    renderRadar();
+    renderList();
+    if (selectedIcao) {
+      const found = planes.find(p => p.icao === selectedIcao);
+      if (found) renderDetail(found);
+    }
+  } catch (e) {
+    setStatus('API LIMIT - RETRYING IN 30s', false);
+    console.error(e);
+  }
+}
+
+function renderRadar() {
+  const layer = document.getElementById('plane-layer');
+  layer.innerHTML = '';
+  const size = document.getElementById('radar').offsetWidth;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 14;
+
+  planes.forEach(p => {
+    const angle = p.bearing * Math.PI / 180;
+    const frac = Math.min(p.dist / RADIUS_NM, 1) * 0.9;
+    const x = cx + Math.sin(angle) * frac * r;
+    const y = cy - Math.cos(angle) * frac * r;
+
+    const dot = document.createElement('div');
+    dot.className = 'plane-dot' + (p.icao === selectedIcao ? ' selected' : '');
+    dot.style.left = x + 'px';
+    dot.style.top = y + 'px';
+    dot.dataset.callsign = p.callsign.substring(0, 7);
+    dot.title = p.callsign;
+    dot.onclick = () => selectPlane(p.icao);
+    layer.appendChild(dot);
+  });
+}
+
+function renderList() {
+  const rows = document.getElementById('list-rows');
+  if (planes.length === 0) {
+    rows.innerHTML = '<div style="padding:16px;text-align:center;color:rgba(0,255,136,0.25);font-size:0.65rem;letter-spacing:0.15em;">NO CONTACTS IN RANGE</div>';
+    return;
+  }
+  rows.innerHTML = planes.map(p => {
+    const airlineLabel = p.airline
+      ? `${airlineBadgeHTML(p.airline)}<span>${p.airline.name.substring(0, 14)}</span>`
+      : `${airlineBadgeHTML(null)}<span style="color:rgba(0,255,136,0.3)">${p.origin}</span>`;
+    return `
+    <div class="flight-row ${p.icao === selectedIcao ? 'active' : ''}" onclick="selectPlane('${p.icao}')">
+      <span class="callsign">${p.callsign}</span>
+      <span class="route" style="display:flex;align-items:center;gap:0">${airlineLabel}</span>
+      <span class="alt">${p.alt ? p.alt.toLocaleString() : '--'}</span>
+      <span class="dist">${p.dist.toFixed(1)}</span>
+    </div>`;
+  }).join('');
+}
+
+function selectPlane(icao) {
+  selectedIcao = icao;
+  const p = planes.find(pl => pl.icao === icao);
+  if (p) { renderDetail(p); renderRadar(); renderList(); }
+}
+
+function renderDetail(p) {
+  document.getElementById('detail-empty').style.display = 'none';
+  const content = document.getElementById('detail-content');
+  content.style.display = 'block';
+  const vertStr = p.vert > 0 ? `+${p.vert} fpm` : p.vert < 0 ? `${p.vert} fpm` : 'LEVEL';
+
+  const airlineBlock = p.airline
+    ? `<div class="airline-badge">
+         <div class="airline-dot" style="background:${p.airline.color}"></div>
+         <span class="airline-name">${p.airline.name}</span>
+       </div>`
+    : `<div class="airline-badge"><span class="airline-unknown">AIRLINE UNKNOWN</span></div>`;
+
+  content.innerHTML = `
+    <div class="detail-callsign">${p.callsign}</div>
+    ${airlineBlock}
+    <div class="detail-grid">
+      <div class="detail-field"><label>ICAO HEX</label><div class="val">${p.icao.toUpperCase()}</div></div>
+      <div class="detail-field"><label>ORIGIN COUNTRY</label><div class="val">${p.origin}</div></div>
+      <div class="detail-field"><label>ALTITUDE</label><div class="val highlight">${p.alt ? p.alt.toLocaleString() + ' ft' : 'UNKNOWN'}</div></div>
+      <div class="detail-field"><label>GROUND SPEED</label><div class="val">${p.speed ? p.speed + ' kts' : '--'}</div></div>
+      <div class="detail-field"><label>DISTANCE</label><div class="val highlight">${p.dist.toFixed(1)} nm</div></div>
+      <div class="detail-field"><label>BEARING FROM YOU</label><div class="val">${Math.round(p.bearing)}° ${compassDir(p.bearing)}</div></div>
+      <div class="detail-field"><label>HEADING</label><div class="val">${p.heading ? Math.round(p.heading) + '°' : '--'}</div></div>
+      <div class="detail-field"><label>VERT RATE</label><div class="val">${vertStr}</div></div>
+    </div>
+  `;
+}
+
+function compassDir(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+</script>
+</body>
+</html>

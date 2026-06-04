@@ -519,10 +519,8 @@ if (isSafari && !isInStandaloneMode) {
 }
 
 // ── API ───────────────────────────────────────────────────────
-const WORKER = 'https://green-hill-ea3d.andy-mortland.workers.dev';
-
 function buildApiUrl(lat, lon, r) {
-  return `${WORKER}/?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
+  return `/api/planes?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
 }
 
 // ── AIRLINE DATABASE ──────────────────────────────────────────

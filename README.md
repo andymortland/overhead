@@ -55,13 +55,33 @@ and works anywhere you have a cell signal.
 - Tap any dot or row in the list to see altitude, speed, heading, and vertical rate
 - Data refreshes every 30 seconds from OpenSky Network
 
+## OpenSky Network account
+
+This app requires a free OpenSky Network account to function reliably.
+
+**Why?** OpenSky's anonymous API is rate-limited to a shared pool of ~400 requests/day
+across all anonymous users worldwide. With a free account you get your own personal
+allocation, which is enough for several hours of continuous use per day.
+
+**Create a free account:**
+1. Go to https://opensky-network.org
+2. Click Register and complete signup (no credit card required)
+3. Launch the app - the login screen will appear on first use
+4. Enter your OpenSky username and password and tap CONNECT
+5. The app verifies your credentials, saves them to the device, and proceeds
+
+Your credentials are stored only in your browser's local storage on your device.
+They are never transmitted to GitHub or any third party - the app connects directly
+from your device to OpenSky's API.
+
+**Subsequent launches:** the app remembers your credentials automatically. Use the
+⚙ button in the header if you ever need to update them.
+
 ## Notes
 
-- **OpenSky rate limits**: the free anonymous API allows ~400 requests/day shared across
-  all anonymous users. If you hit the limit, the app shows "API LIMIT" and retries in 30s.
-  Creating a free account at opensky-network.org and adding credentials to the fetch URL
-  gives much better reliability.
-- **Coverage**: OpenSky relies on volunteer ADS-B receivers. Chicago metro area has
-  excellent coverage.
+- **Coverage**: OpenSky relies on a global network of volunteer ADS-B receivers.
+  The Chicago metro area has excellent coverage.
+- **Rate limits**: at a 30-second refresh interval, a free account supports roughly
+  3-4 hours of continuous use per day. The app retries automatically if a limit is hit.
 - **Offline**: the app shell loads from cache when offline, but live plane data requires
   a network connection.

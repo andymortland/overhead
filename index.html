@@ -704,11 +704,14 @@ function clearCredentials() {
 }
 
 function buildApiUrl(lat, lon, r) {
+  return `https://opensky-network.org/api/states/all?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
+}
+
+function apiFetchOptions() {
   const creds = getCredentials();
-  const base = creds
-    ? `https://${encodeURIComponent(creds.user)}:${encodeURIComponent(creds.pass)}@opensky-network.org`
-    : 'https://opensky-network.org';
-  return `${base}/api/states/all?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
+  if (!creds) return {};
+  const encoded = btoa(`${creds.user}:${creds.pass}`);
+  return { headers: { 'Authorization': `Basic ${encoded}` } };
 }
 
 function showLogin(errorMsg) {
@@ -745,8 +748,11 @@ async function submitLogin() {
 
   // Test credentials with a minimal bounding box call
   try {
-    const testUrl = `https://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@opensky-network.org/api/states/all?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8`;
-    const resp = await fetch(testUrl);
+    const encoded = btoa(`${user}:${pass}`);
+    const testUrl = 'https://opensky-network.org/api/states/all?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8';
+    const resp = await fetch(testUrl, {
+      headers: { 'Authorization': `Basic ${encoded}` }
+    });
     if (resp.status === 401) {
       btn.textContent = '▶ CONNECT';
       btn.disabled = false;
@@ -882,7 +888,7 @@ async function fetchPlanes() {
   const url = buildApiUrl(myLat, myLon, RADIUS_DEG);
 
   try {
-    const resp = await fetch(url);
+    const resp = await fetch(url, apiFetchOptions());
     if (resp.status === 401) {
       clearCredentials();
       showLogin('SESSION EXPIRED - PLEASE RE-ENTER CREDENTIALS');

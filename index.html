@@ -502,7 +502,13 @@
 
   <p class="note">Data via OpenSky Network. Refreshes every 30s.<br>Coverage depends on volunteer receiver density in your area.</p>
 
-  <pre id="scan-diag" style="display:none;width:min(90vw,360px);font-size:0.55rem;line-height:1.8;color:#00aa55;background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,136,0.15);padding:10px 12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all"><style>.sd-ok{color:#00ff88}.sd-warn{color:#ffaa00}.sd-err{color:#ff4444}</style></pre>
+  <div id="scan-diag-wrap" style="display:none;width:min(90vw,360px)">
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button onclick="copyDiag()" style="flex:1;font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;color:#030a06;background:#00ff88;border:none;padding:7px;cursor:pointer">⎘ COPY LOG</button>
+      <button onclick="clearDiag()" style="flex:1;font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;color:#00ff88;background:transparent;border:1px solid rgba(0,255,136,0.3);padding:7px;cursor:pointer">✕ CLEAR</button>
+    </div>
+    <pre id="scan-diag" style="font-size:0.55rem;line-height:1.8;color:#00aa55;background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,136,0.15);padding:10px 12px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow-y:auto"><style>.sd-ok{color:#00ff88}.sd-warn{color:#ffaa00}.sd-err{color:#ff4444}</style></pre>
+  </div>
 </div>
 
 <script>
@@ -523,6 +529,8 @@ function buildApiUrl(lat, lon, r) {
   return `/api/planes?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
 }
 
+
+
 // ── AIRLINE DATABASE ──────────────────────────────────────────
 let AIRLINES = {};
 fetch('airlines.json')
@@ -541,6 +549,43 @@ function airlineBadgeHTML(airline) {
 }
 
 // ── STATE ─────────────────────────────────────────────────────
+
+function sd(msg, type = '') {
+  const ts = new Date().toISOString().substring(11, 23);
+  diagLog.push({ ts, msg, type });
+  const el = document.getElementById('scan-diag');
+  const wrap = document.getElementById('scan-diag-wrap');
+  wrap.style.display = 'block';
+  el.innerHTML = '<style>.sd-ok{color:#00ff88}.sd-warn{color:#ffaa00}.sd-err{color:#ff4444}</style>' +
+    diagLog.map(d => `<span class="${d.type ? 'sd-' + d.type : ''}">[${d.ts}] ${d.msg}</span>`).join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearDiag() {
+  diagLog = [];
+  document.getElementById('scan-diag').innerHTML = '<style>.sd-ok{color:#00ff88}.sd-warn{color:#ffaa00}.sd-err{color:#ff4444}</style>';
+  document.getElementById('scan-diag-wrap').style.display = 'none';
+}
+
+function copyDiag() {
+  const text = diagLog.map(d => `[${d.ts}] ${d.msg}`).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('#scan-diag-wrap button');
+    const orig = btn.textContent;
+    btn.textContent = '✓ COPIED';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {
+    // Fallback for older Safari
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
 let myLat = null, myLon = null;
 let planes = [];
 let selectedIcao = null;
@@ -618,22 +663,17 @@ async function fetchPlanes() {
   setStatus('SCANNING...', true);
   const url = buildApiUrl(myLat, myLon, RADIUS_DEG);
 
-  const diagEl = document.getElementById('scan-diag');
-  const lines = [];
-  const sd = (msg, type='') => {
-    const ts = new Date().toISOString().substring(11,23);
-    lines.push(`<span class="${type ? 'sd-'+type : ''}">[${ts}] ${msg}</span>`);
-    diagEl.innerHTML = lines.join('\n');
-    diagEl.style.display = 'block';
-  };
-
-  sd('fetchPlanes() called');
+  sd('--- fetchPlanes() ---');
+  sd(`Location: ${myLat.toFixed(5)}, ${myLon.toFixed(5)}`);
   sd(`URL: ${url}`);
 
   try {
-    sd('Sending fetch to worker...');
+    sd('Sending fetch...');
+    const start = Date.now();
     const resp = await fetch(url);
-    sd(`Response: HTTP ${resp.status}`, resp.status === 200 ? 'ok' : resp.status < 500 ? 'warn' : 'err');
+    const ms = Date.now() - start;
+    sd(`Response: HTTP ${resp.status} (${ms}ms)`, resp.status === 200 ? 'ok' : resp.status < 500 ? 'warn' : 'err');
+    sd(`Content-Type: ${resp.headers.get('content-type') || 'none'}`);
 
     if (resp.status === 429) {
       sd('429 - rate limit hit', 'warn');
@@ -642,12 +682,47 @@ async function fetchPlanes() {
     }
     if (!resp.ok) {
       const text = await resp.text();
-      sd(`Error body: ${text.substring(0, 120)}`, 'err');
+      sd(`Error body: ${text.substring(0, 200)}`, 'err');
       throw new Error(`HTTP ${resp.status}`);
     }
 
     const data = await resp.json();
-    sd(`JSON OK. states: ${data.states ? data.states.length : 'null'}`, 'ok');
+    sd(`States returned: ${data.states ? data.states.length : 'null (empty sky or no data)'}`, 'ok');
+
+    const states = data.states || [];
+    planes = states
+      .filter(s => s[5] && s[6] && s[7])
+      .map(s => ({
+        icao: s[0],
+        callsign: (s[1] || '').trim() || s[0].toUpperCase(),
+        origin: s[2] || '??',
+        lon: s[5],
+        lat: s[6],
+        alt: s[7] ? Math.round(s[7] * 3.28084) : null,
+        speed: s[9] ? Math.round(s[9] * 1.94384) : null,
+        heading: s[10] || 0,
+        vert: s[11] || 0,
+        dist: haversine(myLat, myLon, s[6], s[5]),
+        bearing: bearing(myLat, myLon, s[6], s[5]),
+        airline: getAirline((s[1] || '').trim())
+      }))
+      .filter(p => p.dist <= RADIUS_NM)
+      .sort((a, b) => a.dist - b.dist);
+
+    sd(`Planes in ${RADIUS_NM}nm range: ${planes.length}`, planes.length > 0 ? 'ok' : 'warn');
+    document.getElementById('contact-count').textContent = planes.length;
+    setStatus(planes.length > 0 ? 'ACTIVE - ' + new Date().toLocaleTimeString() : 'SCANNING - NO CONTACTS', false);
+    renderRadar();
+    renderList();
+    if (selectedIcao) {
+      const found = planes.find(p => p.icao === selectedIcao);
+      if (found) renderDetail(found);
+    }
+  } catch (e) {
+    sd(`Exception: ${e.name}: ${e.message}`, 'err');
+    setStatus('FETCH ERROR - RETRYING IN 30s', false);
+  }
+}
 
     const states = data.states || [];
     planes = states

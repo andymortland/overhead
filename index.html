@@ -575,6 +575,25 @@
 
   #settings-btn:active { color: var(--green); }
 
+  #login-diag {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0,255,136,0.15);
+    background: rgba(0,0,0,0.3);
+    font-size: 0.58rem;
+    color: var(--dim-green);
+    letter-spacing: 0.05em;
+    line-height: 1.9;
+    word-break: break-all;
+  }
+
+  #login-diag.visible { display: block; }
+  #login-diag .diag-line { display: block; }
+  #login-diag .diag-ok { color: var(--green); }
+  #login-diag .diag-err { color: #ff4444; }
+  #login-diag .diag-warn { color: var(--amber); }
+
   /* Install prompt banner */
   #install-banner {
     display: none;
@@ -611,6 +630,7 @@
     </div>
     <button id="login-btn" onclick="submitLogin()">▶ CONNECT</button>
     <div id="login-error"></div>
+    <div id="login-diag"></div>
   </div>
 
   <div class="login-help">
@@ -730,50 +750,88 @@ function hideLogin() {
   document.getElementById('login-screen').classList.add('hidden');
 }
 
+let diagLines = [];
+function diag(msg, type = '') {
+  const ts = new Date().toISOString().substring(11, 23);
+  diagLines.push({ ts, msg, type });
+  const el = document.getElementById('login-diag');
+  el.classList.add('visible');
+  el.innerHTML = diagLines.map(d =>
+    `<span class="diag-line ${d.type ? 'diag-' + d.type : ''}">[${d.ts}] ${d.msg}</span>`
+  ).join('');
+}
+
 async function submitLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value;
   const btn = document.getElementById('login-btn');
   const errEl = document.getElementById('login-error');
 
+  diagLines = [];
+  diag('Login attempt started');
+
   if (!user || !pass) {
     errEl.textContent = 'ENTER BOTH USERNAME AND PASSWORD';
     errEl.style.display = 'block';
+    diag('Validation failed: missing fields', 'err');
     return;
   }
+
+  diag(`User: "${user}", pass length: ${pass.length}`);
 
   btn.textContent = '⟳ VERIFYING...';
   btn.disabled = true;
   errEl.style.display = 'none';
 
-  // Test credentials with a minimal bounding box call
+  const testUrl = 'https://opensky-network.org/api/states/all?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8';
+  diag(`Fetching: ${testUrl}`);
+
+  let encoded;
   try {
-    const encoded = btoa(`${user}:${pass}`);
-    const testUrl = 'https://opensky-network.org/api/states/all?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8';
+    encoded = btoa(`${user}:${pass}`);
+    diag(`btoa encode OK, length: ${encoded.length}`, 'ok');
+  } catch (e) {
+    diag(`btoa failed: ${e.message}`, 'err');
+    errEl.textContent = 'ENCODING ERROR: ' + e.message;
+    errEl.style.display = 'block';
+    btn.textContent = '▶ CONNECT';
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    diag('Sending fetch...');
     const resp = await fetch(testUrl, {
       headers: { 'Authorization': `Basic ${encoded}` }
     });
+    diag(`Response received: HTTP ${resp.status}`, resp.status < 400 ? 'ok' : 'warn');
+    diag(`Content-Type: ${resp.headers.get('content-type') || 'none'}`);
+
     if (resp.status === 401) {
+      diag('401 Unauthorized - bad credentials', 'err');
       btn.textContent = '▶ CONNECT';
       btn.disabled = false;
       errEl.textContent = 'INVALID CREDENTIALS - CHECK USERNAME AND PASSWORD';
       errEl.style.display = 'block';
       return;
     }
-    // Any non-401 response (including 429 rate limit) means credentials are valid
+
+    diag(`HTTP ${resp.status} - credentials accepted`, 'ok');
     saveCredentials(user, pass);
+    diag('Credentials saved to localStorage', 'ok');
     btn.textContent = '▶ CONNECT';
     btn.disabled = false;
     hideLogin();
-    // If we already have a location, just start fetching - otherwise show the acquire button
     if (myLat !== null) {
       fetchPlanes();
       refreshTimer = setInterval(fetchPlanes, 30000);
     }
   } catch (e) {
+    diag(`fetch threw: ${e.name}: ${e.message}`, 'err');
+    diag(`Stack: ${e.stack ? e.stack.substring(0, 120) : 'none'}`, 'err');
     btn.textContent = '▶ CONNECT';
     btn.disabled = false;
-    errEl.textContent = 'NETWORK ERROR - CHECK CONNECTION AND RETRY';
+    errEl.textContent = 'NETWORK ERROR: ' + e.name + ' - ' + e.message;
     errEl.style.display = 'block';
   }
 }

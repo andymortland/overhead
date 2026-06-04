@@ -724,14 +724,13 @@ function clearCredentials() {
 }
 
 function buildApiUrl(lat, lon, r) {
-  return `https://opensky-network.org/api/states/all?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
+  const creds = getCredentials();
+  const base = `https://opensky-network.org/api/states/all?lamin=${lat-r}&lomin=${lon-r}&lamax=${lat+r}&lomax=${lon+r}`;
+  return creds ? `${base}&user=${encodeURIComponent(creds.user)}&password=${encodeURIComponent(creds.pass)}` : base;
 }
 
 function apiFetchOptions() {
-  const creds = getCredentials();
-  if (!creds) return {};
-  const encoded = btoa(`${creds.user}:${creds.pass}`);
-  return { headers: { 'Authorization': `Basic ${encoded}` } };
+  return {};
 }
 
 function showLogin(errorMsg) {
@@ -801,9 +800,9 @@ async function submitLogin() {
 
   try {
     diag('Sending fetch...');
-    const resp = await fetch(testUrl, {
-      headers: { 'Authorization': `Basic ${encoded}` }
-    });
+    const testUrl = `https://opensky-network.org/api/states/all?lamin=41.9&lomin=-87.9&lamax=42.0&lomax=-87.8&user=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
+    diag(`URL (truncated): ...${testUrl.substring(testUrl.indexOf('lamin'))}`);
+    const resp = await fetch(testUrl);
     diag(`Response received: HTTP ${resp.status}`, resp.status < 400 ? 'ok' : 'warn');
     diag(`Content-Type: ${resp.headers.get('content-type') || 'none'}`);
 
